@@ -1,9 +1,11 @@
 import java.io.BufferedReader;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.security.Key;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -12,7 +14,6 @@ import java.security.PublicKey;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.Scanner;
-
 import javax.crypto.Cipher;
 
 public class ClienteBurger {
@@ -38,9 +39,19 @@ public class ClienteBurger {
         this.publicKey = pair.getPublic(); // Clave pública
         this.privateKey = pair.getPrivate(); // Clave privada
 
+        // Almacenar claves en archivos
+        saveKeyToFile("clave_cliente.publica", this.publicKey);
+        saveKeyToFile("clave_cliente.privada", this.privateKey);
+
         // Imprimir claves en consola
         System.out.println("Clave pública del cliente: " + Base64.getEncoder().encodeToString(this.publicKey.getEncoded()));
         System.out.println("Clave privada del cliente: " + Base64.getEncoder().encodeToString(this.privateKey.getEncoded()));
+    }
+
+    private void saveKeyToFile(String fileName, Key key) throws IOException {
+        try (FileOutputStream fos = new FileOutputStream(fileName)) {
+            fos.write(key.getEncoded());
+        }
     }
 
     public void comprar() throws Exception {
@@ -72,12 +83,15 @@ public class ClienteBurger {
                     System.out.print(this.nombreCliente + ": ");
                     mensaje = reader.nextLine();
 
+                    // Formatear el mensaje para incluir el nombre del cliente
+                    String mensajeCompleto = this.nombreCliente + ": " + mensaje;
+
                     // Cifrar mensaje con la clave pública del servidor
-                    byte[] encryptedMessage = encrypt(mensaje, serverPublicKey);
+                    byte[] encryptedMessage = encrypt(mensajeCompleto, serverPublicKey);
                     String encryptedMessageString = Base64.getEncoder().encodeToString(encryptedMessage);
                     
                     // Imprimir el mensaje original y el mensaje cifrado en consola
-                    System.out.println("Cadena original: " + mensaje);
+                    System.out.println("Cadena original: " + mensajeCompleto);
                     System.out.println("Mensaje cifrado: " + encryptedMessageString);
                     
                     pw.println(encryptedMessageString);
@@ -129,10 +143,14 @@ public class ClienteBurger {
         }
     }
 
-    private void close(PrintWriter writer) throws IOException {
-        if (null != writer) {
-		    writer.close();
-		}
+    private void close(PrintWriter writer) {
+        try {
+            if (null != writer) {
+                writer.close();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private void close(BufferedReader reader) {
@@ -155,12 +173,18 @@ public class ClienteBurger {
         }
     }
 
-    public static void main(String[] args) {
-        try {
-            ClienteBurger cliente = new ClienteBurger("Ruben", 23, 50);
-            cliente.comprar();
-        } catch (Exception e) {
-            e.printStackTrace();
+        public static void main(String[] args) {
+            try {
+                // Generar y almacenar claves
+                AlmacenarClavesFichero almacenar = new AlmacenarClavesFichero();
+                almacenar.saveToFilePrivateKey(almacenar.getPrivada(), "clave_cliente.privada");
+                almacenar.saveToFilePublicKey(almacenar.getPublica(), "clave_cliente.publica");
+
+                // Ahora crear el cliente
+                ClienteBurger cliente = new ClienteBurger("Ruben", 23, 50);
+                cliente.comprar();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
-    }
 }

@@ -20,7 +20,7 @@ public class ServidorBurger {
 
     public void iniciarServidor() throws Exception {
         try (ServerSocket serverSocket = new ServerSocket(9876)) {
-            System.out.println("Tienda abierta");
+            System.out.println("AutoKing Abierto");
 
             while (true) {
                 try {
