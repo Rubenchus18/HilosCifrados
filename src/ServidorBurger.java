@@ -1,50 +1,48 @@
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.security.KeyFactory;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
 import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.security.spec.X509EncodedKeySpec;
-import java.util.Base64;
 
 public class ServidorBurger {
+    private static final long MAX_TIME = 3 * 60 * 1000; 
     private PublicKey publicKey;
     private PrivateKey privateKey;
 
     public ServidorBurger() throws Exception {
-        // Leer claves desde archivos
-        LeerClavesFichero leerClaves = new LeerClavesFichero();
-        this.privateKey = leerClaves.readOfFilePrivateKey("clave_servidor.privada");
-        this.publicKey = leerClaves.readOfFilePublicKey("clave_servidor.publica");
+        // Generar par de claves
+        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
+        keyGen.initialize(2048);
+        KeyPair pair = keyGen.generateKeyPair();
+        this.publicKey = pair.getPublic();
+        this.privateKey = pair.getPrivate();
     }
 
     public void iniciarServidor() throws Exception {
-        try (ServerSocket serverSocket = new ServerSocket(9876)) {
-            System.out.println("AutoKing Abierto");
+        ServerSocket socketEscucha = null;
+        try {
+            socketEscucha = new ServerSocket(9876);
+            System.out.println("Auto King abierto");
 
-            while (true) {
-                try {
-                    Socket socket = serverSocket.accept();
-                    System.out.println("Conexion recibida!");
-
-                    // Crear un nuevo hilo para manejar la petición
-                    Peticion peticion = new Peticion(socket, publicKey, privateKey);
-                    peticion.start();
-                } catch (IOException e) {
-                    System.out.println("Error al aceptar la conexión: " + e.getMessage());
-                }
+            final long INIT_TIME = System.currentTimeMillis();
+            while (System.currentTimeMillis() <= (INIT_TIME + MAX_TIME)) {
+                Socket conexion = socketEscucha.accept();
+                Peticion hilo = new Peticion(conexion, publicKey, privateKey);
+                hilo.start();
             }
         } catch (IOException e) {
-            System.out.println("Error al iniciar el servidor: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            if (socketEscucha != null) {
+                socketEscucha.close();
+            }
         }
     }
 
-    public static void main(String[] args) {
-        try {
-            ServidorBurger servidor = new ServidorBurger();
-            servidor.iniciarServidor();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+    public static void main(String[] args) throws Exception {
+        ServidorBurger servidor = new ServidorBurger();
+        servidor.iniciarServidor();
     }
 }

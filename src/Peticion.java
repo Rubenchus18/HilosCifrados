@@ -1,88 +1,70 @@
-import javax.crypto.Cipher;
 import java.io.*;
 import java.net.Socket;
-import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
+
+import javax.crypto.Cipher;
 
 public class Peticion extends Thread {
     private Socket socket;
-    private PublicKey serverPublicKey;
-    private PrivateKey serverPrivateKey;
+    private PublicKey publicKey; // Clave pública del servidor
+    private PrivateKey privateKey; // Clave privada del servidor
+    private PublicKey clientPublicKey; // Clave pública del cliente
 
-    // Constructor que recibe el socket y las claves
-    public Peticion(Socket socket, PublicKey serverPublicKey, PrivateKey serverPrivateKey) {
+    public Peticion(Socket socket, PublicKey publicKey, PrivateKey privateKey) {
         this.socket = socket;
-        this.serverPublicKey = serverPublicKey;
-        this.serverPrivateKey = serverPrivateKey;
+        this.publicKey = publicKey;
+        this.privateKey = privateKey;
     }
 
-    private void escuchar() {
-        try {
-            BufferedReader bf = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            PrintWriter pw = new PrintWriter(socket.getOutputStream(), true);
+    @Override
+    public void run() {
+        try (BufferedReader bf = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+             PrintWriter pw = new PrintWriter(socket.getOutputStream(), true)) {
 
-            // Recibir clave pública del cliente
+            // 1. Recibir la clave pública del cliente
             String clientPublicKeyString = bf.readLine();
-            PublicKey clientPublicKey = KeyFactory.getInstance("RSA")
-                    .generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(clientPublicKeyString)));
+            this.clientPublicKey = KeyUtil.stringToPublicKey(clientPublicKeyString);
 
-            // Imprimir información sobre la clave pública del cliente
+            // Mostrar clave pública del cliente
             System.out.println("rutaPublicKey: clave_cliente.publica");
-            System.out.println("clave publica cliente: " + clientPublicKey.toString());
+            System.out.println("Clave pública del cliente: " + clientPublicKey);
 
-            // Enviar clave pública del servidor al cliente
-            pw.println(Base64.getEncoder().encodeToString(serverPublicKey.getEncoded()));
+            // 2. Enviar la clave pública del servidor al cliente
+            pw.println(KeyUtil.publicKeyToString(publicKey));
 
             String encryptedMessage;
             while ((encryptedMessage = bf.readLine()) != null) {
-                String message = decrypt(Base64.getDecoder().decode(encryptedMessage));
+                // Mostrar mensaje cifrado recibido
+                System.out.println("Mensaje cifrado recibido: " + encryptedMessage);
+
+                // 3. Descifrar el mensaje recibido con la clave privada del servidor
+                String message = decrypt(encryptedMessage, privateKey);
+
+                // Mostrar mensaje descifrado
+                System.out.println("Mensaje descifrado: " + message);
+
                 String[] parts = message.split(":", 2);
                 String clientName = parts[0];
-                String clientMessage = parts.length > 1 ? parts[1] : "";
+                String clientMessage = parts.length > 1 ? parts[1].trim() : "";
 
                 System.out.println("El cliente " + clientName + " dice: " + clientMessage);
 
-                String response;
-                switch (clientMessage) {
-                    case "Buenos días":
-                        response = "Buenos días " + clientName + ", ¿qué desea?";
-                        break;
-                    case "Buenas tardes":
-                        response = "Buenas tardes " + clientName + ", ¿qué desea?";
-                        break;
-                    case "Buenas noches":
-                        response = "Buenas noches " + clientName + ", ¿qué desea?";
-                        break;
-                    case "Deseo un menú Whopper":
-                        response = clientName + ", aquí tiene su menú Whopper, ¿desea algo más?";
-                        break;
-                    case "Deseo un menú BigKing":
-                        response = clientName + ", aquí tiene su menú BigKing, ¿desea algo más?";
-                        break;
-                    case "Deseo un menú LongChicken":
-                        response = clientName + ", aquí tiene su menú LongChicken, ¿desea algo más?";
-                        break;
-                    case "Deseo un menú CrispyChicken":
-                        response = clientName + ", aquí tiene su menú CrispyChicken, ¿desea algo más?";
-                        break;
-                    case "No quiero nada más":
-                        response = "Gracias por su pedido";
-                        break;
-                    default:
-                        response = "Perdona, no entendí.";
-                }
+                // 4. Procesar el mensaje y generar una respuesta
+                String response = procesarMensaje(clientName, clientMessage);
 
-                // Imprimir la respuesta antes de cifrarla
+                // Mostrar cadena original del servidor
                 System.out.println("Cadena original Servidor: " + response);
 
-                byte[] encryptedResponse = encrypt(response, clientPublicKey);
-                pw.println(Base64.getEncoder().encodeToString(encryptedResponse));
-                
-                // Imprimir el mensaje cifrado que se envía al cliente
-                System.out.println("Mensaje cifrado servidor: " + Base64.getEncoder().encodeToString(encryptedResponse));
+                // 5. Cifrar la respuesta con la clave pública del cliente
+                String encryptedResponse = encrypt(response, clientPublicKey);
+
+                // Mostrar mensaje cifrado que se envía al cliente
+                System.out.println("Mensaje cifrado servidor: " + encryptedResponse);
+
+                // Enviar respuesta cifrada al cliente
+                pw.println(encryptedResponse);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -95,20 +77,43 @@ public class Peticion extends Thread {
         }
     }
 
-    private byte[] encrypt(String message, PublicKey publicKey) throws Exception {
+    // Método para procesar el mensaje y generar una respuesta
+    private String procesarMensaje(String clientName, String clientMessage) {
+        switch (clientMessage) {
+            case "Buenos días":
+                return "Buenos días " + clientName + ", ¿qué desea?";
+            case "Buenas tardes":
+                return "Buenas tardes " + clientName + ", ¿qué desea?";
+            case "Buenas noches":
+                return "Buenas noches " + clientName + ", ¿qué desea?";
+            case "Deseo un menú Whopper":
+                return clientName + ", aquí tiene su menú Whopper, ¿desea algo más?";
+            case "Deseo un menú BigKing":
+                return clientName + ", aquí tiene su menú BigKing, ¿desea algo más?";
+            case "Deseo un menú LongChicken":
+                return clientName + ", aquí tiene su menú LongChicken, ¿desea algo más?";
+            case "Deseo un menú CrispyChicken":
+                return clientName + ", aquí tiene su menú CrispyChicken, ¿desea algo más?";
+            case "No quiero nada más":
+                return "Gracias por su pedido";
+            default:
+                return "Perdona, no entendí.";
+        }
+    }
+
+    // Método para cifrar un mensaje con una clave pública
+    private String encrypt(String message, PublicKey publicKey) throws Exception {
         Cipher cipher = Cipher.getInstance("RSA");
         cipher.init(Cipher.ENCRYPT_MODE, publicKey);
-        return cipher.doFinal(message.getBytes());
+        byte[] encryptedBytes = cipher.doFinal(message.getBytes());
+        return Base64.getEncoder().encodeToString(encryptedBytes);
     }
 
-    private String decrypt(byte[] encryptedMessage) throws Exception {
+    // Método para descifrar un mensaje con una clave privada
+    private String decrypt(String encryptedMessage, PrivateKey privateKey) throws Exception {
         Cipher cipher = Cipher.getInstance("RSA");
-        cipher.init(Cipher.DECRYPT_MODE, serverPrivateKey);
-        return new String(cipher.doFinal(encryptedMessage));
-    }
-
-    @Override
-    public void run() {
-        escuchar();
+        cipher.init(Cipher.DECRYPT_MODE, privateKey);
+        byte[] decryptedBytes = cipher.doFinal(Base64.getDecoder().decode(encryptedMessage));
+        return new String(decryptedBytes);
     }
 }
