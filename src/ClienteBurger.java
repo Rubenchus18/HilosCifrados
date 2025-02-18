@@ -26,10 +26,9 @@ public class ClienteBurger {
          
         
     }
-
     public void comprar() throws Exception {
         if (this.edad<18) {
-            System.out.println("No se puede conectar al servidor porque no se generaron las claves necesarias.");
+            System.out.println(nombreCliente+"no se puede conectar al servidor porque no se generaron las claves necesarias.");
             return;
         }else {
         	   KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
@@ -88,7 +87,6 @@ public class ClienteBurger {
 
         
     }
-
     public String encrypt(String message, PublicKey publicKey) throws Exception {
         Cipher cipher = Cipher.getInstance("RSA");
         cipher.init(Cipher.ENCRYPT_MODE, publicKey);

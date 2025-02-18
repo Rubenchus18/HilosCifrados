@@ -45,13 +45,13 @@ public class Peticion extends Thread {
                 }
 
                 System.out.println("El cliente " + nombreCliente + " dice: " + mensajeCliente);
-                String response = procesarMensaje(nombreCliente, mensajeCliente);
+                String respuesta = procesarMensaje(nombreCliente, mensajeCliente);
                 double precio = obtenerPrecio(mensajeCliente);
-                System.out.println("Cadena original Servidor: " + response);
-                String encryptedResponse = encrypt(response, clientPublicKey);
+                System.out.println("Cadena original Servidor: " + respuesta);
+                String encryptedResponse = encrypt(respuesta, clientPublicKey);
                 System.out.println("Mensaje cifrado servidor: " + encryptedResponse);
                 pw.println(encryptedResponse);
-
+                
                 String encryptedPrice = encrypt(Double.toString(precio), clientPublicKey);
                 pw.println(encryptedPrice);
             }
@@ -66,7 +66,7 @@ public class Peticion extends Thread {
         }
     }
 
-    private String procesarMensaje(String clientName, String clientMessage) {
+    public String procesarMensaje(String clientName, String clientMessage) {
         switch (clientMessage) {
             case "Buenos días":
                 return "Buenos días " + clientName + ", ¿qué desea?";
@@ -89,7 +89,7 @@ public class Peticion extends Thread {
         }
     }
 
-    private double obtenerPrecio(String mensajeCliente) {
+    public double obtenerPrecio(String mensajeCliente) {
         switch (mensajeCliente) {
             case "Deseo un menú Whopper":
                 return 10.50;
