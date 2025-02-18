@@ -1,10 +1,5 @@
-/AlmacenarClavesFichero.class
 /ClienteBurger.class
-/Envio.class
-/GestorCifrado.class
-/LeerClavesFichero.class
+/KeyUtil.class
 /Peticion.class
 /Principal.class
 /ServidorBurger.class
-/ClienteBurger$Main.class
-/KeyUtil.class

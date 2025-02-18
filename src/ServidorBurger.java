@@ -12,7 +12,7 @@ public class ServidorBurger {
     private PrivateKey privateKey;
 
     public ServidorBurger() throws Exception {
-        // Generar par de claves
+     
         KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
         keyGen.initialize(2048);
         KeyPair pair = keyGen.generateKeyPair();
