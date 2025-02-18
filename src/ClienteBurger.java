@@ -16,75 +16,79 @@ public class ClienteBurger {
     private PublicKey publicKey; 
     private PrivateKey privateKey; 
     private PublicKey serverPublicKey; 
+
     public ClienteBurger(String nombreCliente, int edad, double saldo) throws Exception {
-        this.nombreCliente = nombreCliente;
-        this.edad = edad;
-        this.saldo = saldo;
+   
+            this.nombreCliente = nombreCliente;
+            this.edad = edad;
+            this.saldo = saldo;
 
-       
-        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
-        keyGen.initialize(2048);
-        KeyPair pair = keyGen.generateKeyPair();
-        this.publicKey = pair.getPublic();
-        this.privateKey = pair.getPrivate();
-
-       
-        System.out.println("Clave pública del cliente: " + KeyUtil.publicKeyToString(publicKey));
-        System.out.println("Clave privada del cliente: " + KeyUtil.privateKeyToString(privateKey));
+         
+        
     }
 
     public void comprar() throws Exception {
-        try (Socket socket = new Socket()) {
-            socket.connect(new InetSocketAddress("localhost", 9876));
+        if (this.edad<18) {
+            System.out.println("No se puede conectar al servidor porque no se generaron las claves necesarias.");
+            return;
+        }else {
+        	   KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
+               keyGen.initialize(2048);
+               KeyPair pair = keyGen.generateKeyPair();
+               this.publicKey = pair.getPublic();
+               this.privateKey = pair.getPrivate();
 
-            try (PrintWriter pw = new PrintWriter(socket.getOutputStream(), true);
-                 BufferedReader bf = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+               System.out.println("Clave pública del cliente: " + KeyUtil.publicKeyToString(publicKey));
+               System.out.println("Clave privada del cliente: " + KeyUtil.privateKeyToString(privateKey));
+               try (Socket socket = new Socket()) {
+                   socket.connect(new InetSocketAddress("localhost", 9876));
 
-              
-                pw.println(KeyUtil.publicKeyToString(publicKey));
+                   try (PrintWriter pw = new PrintWriter(socket.getOutputStream(), true);
+                        BufferedReader bf = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
 
-                String serverPublicKeyString = bf.readLine();
-                this.serverPublicKey = KeyUtil.stringToPublicKey(serverPublicKeyString);
+                       pw.println(KeyUtil.publicKeyToString(publicKey));
+
+                       String serverPublicKeyString = bf.readLine();
+                       this.serverPublicKey = KeyUtil.stringToPublicKey(serverPublicKeyString);
+
+                       System.out.println("Clave pública del servidor recibida: " + serverPublicKeyString);
+
+                       Scanner reader = new Scanner(System.in);
+                       String resultado = "";
+
+                       while (!resultado.equals("Gracias por su pedido") && saldo > 0) {
+                           System.out.print(nombreCliente + ": ");
+                           String mensaje = reader.nextLine();
+                           System.out.println("Cadena original: " + mensaje);
+                           String encryptedMessage = encrypt(nombreCliente + ":" + mensaje, serverPublicKey);
+                           System.out.println("Mensaje cifrado: " + encryptedMessage);
+                           pw.println(encryptedMessage);              
+                           String encryptedResponse = bf.readLine();
+                           System.out.println("Cadena recibida del servidor: " + encryptedResponse);
+                           resultado = decrypt(encryptedResponse, privateKey);
+                           System.out.println("Dependiente: " + resultado);
+
+                           String encryptedPrice = bf.readLine();
+                           String priceString = decrypt(encryptedPrice, privateKey);
+                           double precio = Double.parseDouble(priceString);
+                           System.out.println("Precio del pedido: " + precio);
+
+                  
+                           saldo=saldo-precio;
+                           System.out.println("Saldo restante: " + saldo);
+
+                           if (saldo <= 0) {
+                               System.out.println("Saldo insuficiente.Hasta luego.");
+                               break;
+                           }
+                       }
+                   }
+               }
+        }
 
         
-                System.out.println("Clave pública del servidor recibida: " + serverPublicKeyString);
-
-                Scanner reader = new Scanner(System.in);
-                String resultado = "";
-
-                while (!resultado.equals("Gracias por su pedido")) {
-                    System.out.print(nombreCliente + ": ");
-                    String mensaje = reader.nextLine();
-
-                 
-                    System.out.println("Cadena original: " + mensaje);
-
-                  
-                    String encryptedMessage = encrypt(nombreCliente + ":" + mensaje, serverPublicKey);
-
-                   
-                    System.out.println("Mensaje cifrado: " + encryptedMessage);
-
-     
-                    pw.println(encryptedMessage);
-
-              
-                    String encryptedResponse = bf.readLine();
-
-                 
-                    System.out.println("Cadena recibida del servidor: " + encryptedResponse);
-
-             
-                    resultado = decrypt(encryptedResponse, privateKey);
-
-                  
-                    System.out.println("Dependiente: " + resultado);
-                }
-            }
-        }
     }
 
-    
     public String encrypt(String message, PublicKey publicKey) throws Exception {
         Cipher cipher = Cipher.getInstance("RSA");
         cipher.init(Cipher.ENCRYPT_MODE, publicKey);
@@ -92,7 +96,6 @@ public class ClienteBurger {
         return Base64.getEncoder().encodeToString(encryptedBytes);
     }
 
-    
     public String decrypt(String encryptedMessage, PrivateKey privateKey) throws Exception {
         Cipher cipher = Cipher.getInstance("RSA");
         cipher.init(Cipher.DECRYPT_MODE, privateKey);

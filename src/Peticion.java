@@ -3,7 +3,6 @@ import java.net.Socket;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.util.Base64;
-
 import javax.crypto.Cipher;
 
 public class Peticion extends Thread {
@@ -23,47 +22,38 @@ public class Peticion extends Thread {
         try (BufferedReader bf = new BufferedReader(new InputStreamReader(socket.getInputStream()));
              PrintWriter pw = new PrintWriter(socket.getOutputStream(), true)) {
 
-         
             String clientPublicKeyString = bf.readLine();
             this.clientPublicKey = KeyUtil.stringToPublicKey(clientPublicKeyString);
 
             System.out.println("rutaPublicKey: clave_cliente.publica");
             System.out.println("Clave pública del cliente: " + clientPublicKey);
 
-     
             pw.println(KeyUtil.publicKeyToString(publicKey));
 
             String encryptedMessage;
             while ((encryptedMessage = bf.readLine()) != null) {
-           
                 System.out.println("Mensaje cifrado recibido: " + encryptedMessage);
-
-               
                 String message = decrypt(encryptedMessage, privateKey);
-
-              
                 System.out.println("Mensaje descifrado: " + message);
-
                 String[] parts = message.split(":", 2);
-                String clientName = parts[0];
-                String clientMessage = parts.length > 1 ? parts[1].trim() : "";
+                String nombreCliente  = parts[0];
+                String mensajeCliente;
+                if (parts.length > 1) {
+                    mensajeCliente = parts[1].trim();
+                } else {
+                    mensajeCliente = "";
+                }
 
-                System.out.println("El cliente " + clientName + " dice: " + clientMessage);
-
-               
-                String response = procesarMensaje(clientName, clientMessage);
-
-              
+                System.out.println("El cliente " + nombreCliente + " dice: " + mensajeCliente);
+                String response = procesarMensaje(nombreCliente, mensajeCliente);
+                double precio = obtenerPrecio(mensajeCliente);
                 System.out.println("Cadena original Servidor: " + response);
-
-          
                 String encryptedResponse = encrypt(response, clientPublicKey);
-
-             
                 System.out.println("Mensaje cifrado servidor: " + encryptedResponse);
-
-               
                 pw.println(encryptedResponse);
+
+                String encryptedPrice = encrypt(Double.toString(precio), clientPublicKey);
+                pw.println(encryptedPrice);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -75,7 +65,6 @@ public class Peticion extends Thread {
             }
         }
     }
-
 
     private String procesarMensaje(String clientName, String clientMessage) {
         switch (clientMessage) {
@@ -100,7 +89,21 @@ public class Peticion extends Thread {
         }
     }
 
-    
+    private double obtenerPrecio(String mensajeCliente) {
+        switch (mensajeCliente) {
+            case "Deseo un menú Whopper":
+                return 10.50;
+            case "Deseo un menú BigKing":
+                return 12.75;
+            case "Deseo un menú LongChicken":
+                return 9.95;
+            case "Deseo un menú CrispyChicken":
+                return 8.75;
+            default:
+                return 0.0;
+        }
+    }
+
     public String encrypt(String message, PublicKey publicKey) throws Exception {
         Cipher cipher = Cipher.getInstance("RSA");
         cipher.init(Cipher.ENCRYPT_MODE, publicKey);
